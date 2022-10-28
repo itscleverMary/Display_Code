@@ -1,0 +1,217 @@
+--This code creates/saves/loads data for the players in a safe way.
+
+--Variables
+--local DataStore2 = require(1936396537)
+local DataStore2 = require(game.ServerScriptService:WaitForChild("MainModule"))
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local updateXP = ReplicatedStorage:WaitForChild("UpdateXP")
+local defaultLevelValue = 1
+local defaultMultiplierValue = 1
+local defaultValue = 0
+
+--PlayerAdded event makes sure to load and save the player's data
+game.Players.PlayerAdded:Connect(function(player)
+	--Refrences
+	local coinsDataStore = DataStore2("Coins", player)
+	local diamondsDataStore = DataStore2("Diamonds", player)
+	local winsDataStore = DataStore2("Wins", player)
+	local levelDataStore = DataStore2("Level", player)
+	local xpDataStore = DataStore2("XP", player)
+	local multiplierDataStore = DataStore2("Multiplier", player)
+	
+	local playerGui = player:WaitForChild("PlayerGui")
+	local coinGui = playerGui:WaitForChild("CoinGui")
+	local diamondsGui = playerGui:WaitForChild("DiamondsGui")
+	local coinDisplay = coinGui:WaitForChild("Frame"):WaitForChild("CoinDisplay")
+	local diamondDisplay = diamondsGui:WaitForChild("Frame"):WaitForChild("DiamondDisplay")
+	local levelGui = playerGui:WaitForChild("LevelGui")
+	local levelDisplay = levelGui:WaitForChild("LevelDisplay")
+	local xpBar = levelGui:WaitForChild("BackgroundFrame"):WaitForChild("XPBar")
+	local xpLabel = levelGui:WaitForChild("BackgroundFrame"):WaitForChild("XPLabel")
+	
+	--Instances needed items/values
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Parent = player
+	leaderstats.Name = "leaderstats"
+	
+	local coins = Instance.new("IntValue")
+	coins.Name = "Coins"
+	coins.Parent = leaderstats
+	
+	local wins = Instance.new("IntValue")
+	wins.Name = "Wins"
+	wins.Parent = leaderstats
+	
+	local diamonds = Instance.new("IntValue")
+	diamonds.Name = "Diamonds"
+	diamonds.Parent = leaderstats
+	
+	local counter = Instance.new("IntValue")
+	counter.Name = "Counter"
+	counter.Parent = player
+	
+	--Level System
+	local levelSystem = Instance.new("Folder")
+	levelSystem.Name = "LevelSystem"
+	levelSystem.Parent = player
+	
+	local level = Instance.new("IntValue")
+	level.Name = "Level"
+	level.Parent = levelSystem
+	
+	local XP = Instance.new("NumberValue")
+	XP.Name = "XP"
+	XP.Parent = levelSystem
+	
+	local requiredXP = Instance.new("NumberValue")
+	requiredXP.Name = "RequiredXP"
+	requiredXP.Parent = levelSystem
+	
+	local multiplier = Instance.new("NumberValue")
+	multiplier.Name = "Multiplier"
+	multiplier.Parent = leaderstats
+	
+	--Functions to update the values whenever it changes
+	local function coinsUpdate(updatedValue)
+		coins.Value = coinsDataStore:Get(updatedValue)
+		coinDisplay.Text = coins.Value
+	end
+	
+	local function diamondUpdate(updatedValue)
+		diamonds.Value = diamondsDataStore:Get(updatedValue)
+		diamondDisplay.Text = diamonds.Value
+	end
+	
+	local function winsUpdate(updatedValue)
+		wins.Value = winsDataStore:Get(updatedValue)
+	end
+	
+	local function levelUpdate(updatedValue)
+		level.Value = levelDataStore:Get(updatedValue)
+		levelDisplay.Text = level.Value
+		print(level.Value)
+	end
+	
+	local function xpUpdate(updatedValue)
+		level.Value = levelDataStore:Get(updatedValue)
+		levelDisplay.Text = level.Value
+		requiredXP.Value = level.Value * 100
+		
+		XP.Value = xpDataStore:Get(updatedValue)
+	end
+	
+	local function multiplierUpdate(updatedValue)
+		multiplier.Value = multiplierDataStore:Get(updatedValue)
+	end
+  
+	--Loads the values in when player joins
+	coinsUpdate(defaultValue)
+	diamondUpdate(defaultValue)
+	winsUpdate(defaultValue)
+	levelUpdate(defaultLevelValue)
+	xpUpdate(defaultValue)
+	multiplierUpdate(defaultMultiplierValue)
+	
+	xpLabel.Text = XP.Value.." / "..requiredXP.Value
+	playerGui:WaitForChild("LevelGui"):WaitForChild("BackgroundFrame"):WaitForChild("XPBar"):TweenSize(UDim2.new(XP.Value / requiredXP.Value, 0, 1, 0))
+	
+	coinsDataStore:OnUpdate(coinsUpdate)
+	diamondsDataStore:OnUpdate(diamondUpdate)
+	winsDataStore:OnUpdate(winsUpdate)
+	levelDataStore:OnUpdate(levelUpdate)
+	xpDataStore:OnUpdate(xpUpdate)
+	multiplierDataStore:OnUpdate(multiplierUpdate)
+end)
+
+local extraXpGoal = nil
+local fullXpGoal = nil
+local normalGoal = nil
+local calc = nil
+local newTable = {}
+
+--This remote event gets fired to update the object values of the player when their xp data gets changed/incremented
+updateXP.OnServerEvent:Connect(function(player, levelSystem)
+	if levelSystem and player then
+		local XP = levelSystem:WaitForChild("XP")
+		local level = levelSystem:WaitForChild("Level")
+		local requiredXP = levelSystem:WaitForChild("RequiredXP")
+		
+		local coinsDataStore = DataStore2("Coins", player)
+		local diamondsDataStore = DataStore2("Diamonds", player)
+		local winsDataStore = DataStore2("Wins", player)
+		local levelDataStore = DataStore2("Level", player)
+		local xpDataStore = DataStore2("XP", player)
+		local multiplierDataStore = DataStore2("Multiplier", player)
+
+		local playerGui = player:WaitForChild("PlayerGui")
+		local coinGui = playerGui:WaitForChild("CoinGui")
+		local diamondsGui = playerGui:WaitForChild("DiamondsGui")
+		local coinDisplay = coinGui:WaitForChild("Frame"):WaitForChild("CoinDisplay")
+		local diamondDisplay = diamondsGui:WaitForChild("Frame"):WaitForChild("DiamondDisplay")
+		local levelGui = playerGui:WaitForChild("LevelGui")
+		local levelDisplay = levelGui:WaitForChild("LevelDisplay")
+		local xpBar = levelGui:WaitForChild("BackgroundFrame"):WaitForChild("XPBar")
+		local xpLabel = levelGui:WaitForChild("BackgroundFrame"):WaitForChild("XPLabel")
+		
+		local subtract = XP.Value - requiredXP.Value
+		extraXpGoal = table.insert(newTable, UDim2.new(subtract / requiredXP.Value, 0, 1, 0))
+		fullXpGoal = {Size = UDim2.new(requiredXP.Value / requiredXP.Value, 0, 1, 0)}
+		normalGoal = {Size = UDim2.new(XP.Value / requiredXP.Value, 0, 1, 0)}
+		local resetGoal = {Size = UDim2.new(0, 0, 1, 0)}
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Linear)
+		local normalTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Linear)
+
+		local tweenExtraXp = TweenService:Create(xpBar, tweenInfo, {Size = extraXpGoal})
+		local tweenFullXP = TweenService:Create(xpBar, tweenInfo, fullXpGoal)
+		local xpGain = TweenService:Create(xpBar, tweenInfo, normalGoal)
+		local resetXP = TweenService:Create(xpBar, normalTweenInfo, resetGoal)
+
+		warn(XP.Value)
+		if XP.Value == requiredXP.Value then
+			local xpLabel = player:WaitForChild("PlayerGui"):WaitForChild("LevelGui"):WaitForChild("BackgroundFrame"):WaitForChild("XPLabel")
+			tweenFullXP:Play()
+			xpLabel.Text = XP.Value/requiredXP.Value.."%"
+			wait(0.8)
+			xpDataStore:Set(0)
+			print('reseted')
+			levelDataStore:Increment(1, defaultLevelValue)
+			requiredXP.Value = level.Value*100
+			resetXP:Play()
+			xpLabel.Text = XP.Value/requiredXP.Value.."%"
+			wait(0.3)
+			multiplierDataStore:Increment(0.5, defaultMultiplierValue)
+
+		elseif XP.Value > requiredXP.Value then
+			local xpLabel = player:WaitForChild("PlayerGui"):WaitForChild("LevelGui"):WaitForChild("BackgroundFrame"):WaitForChild("XPLabel")	
+			print("greater")
+			tweenFullXP:Play()
+			xpLabel.Text = (XP.Value - subtract/requiredXP.Value)*100 .."%"
+			wait(0.8) --Wait tween duration
+			levelDataStore:Increment(1, defaultLevelValue)
+			requiredXP.Value = level.Value*100
+			xpLabel.Text = (subtract/requiredXP.Value)*100 .."%"
+			xpDataStore:Set(subtract)
+			--xpBar:TweenSize(UDim2.new(subtract/requiredXP.Value, 0, 1, 0))
+			tweenExtraXp:Play()
+			for k in pairs (newTable) do
+				newTable[k] = nil
+			end
+			wait(0.5)
+			multiplierDataStore:Increment(1.2, defaultMultiplierValue)
+			print(xpBar.Size)
+
+		elseif XP.Value < requiredXP.Value then
+			local xpLabel = player:WaitForChild("PlayerGui"):WaitForChild("LevelGui"):WaitForChild("BackgroundFrame"):WaitForChild("XPLabel")
+			xpLabel.Text = (XP.Value/requiredXP.Value)*100 .."%"
+
+			if tweenExtraXp.PlaybackState ~= Enum.PlaybackState.Playing then
+				xpGain:Play()
+				print("Did it scale?")
+			end
+			--player:WaitForChild("PlayerGui"):WaitForChild("LevelGui"):WaitForChild("BackgroundFrame"):WaitForChild("XPBar"):TweenSize(UDim2.new(XP.Value / requiredXP.Value, 0, 1, 0))
+		end
+	else
+		player:Kick("💀 imagine hacking-")
+	end
+end)
